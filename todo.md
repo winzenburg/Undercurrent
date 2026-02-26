@@ -93,3 +93,8 @@
 - [x] Trace full audio pipeline: speakText tRPC → base64 → playback on device (ElevenLabs returns 23KB audio, web autoplay was the blocker)
 - [x] Fix browser autoplay block — first question audio must be triggered by user tap, not on mount
 - [x] Add "Tap to hear your question" state to orb so user interaction unlocks audio autoplay for all subsequent questions
+
+## Bug Fixes — Round 4
+- [x] Fix conversation flow: AI follow-up response is spoken, then next main question launches immediately without waiting for user to respond to the follow-up
+- [x] Add explicit conversation states: "answering main question" → "AI follow-up" → "user responds to follow-up" → "advance to next question"
+- [x] Only advance to next main question after user has responded to the AI follow-up (or explicitly skips it with "Next Question →" button)

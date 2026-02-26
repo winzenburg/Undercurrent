@@ -39,8 +39,13 @@ export default function InterviewScreen() {
   const hasSpokenRef = useRef(false);
   const userHasInteractedRef = useRef(false); // Web autoplay policy: audio blocked until first user gesture
   const [awaitingFirstTap, setAwaitingFirstTap] = useState(Platform.OS === "web");
+  // conversationMode controls whether the user is answering the main question or a follow-up
+  // 'main'    — user is answering the current main question
+  // 'followup' — AI has responded; user can reply to the follow-up OR tap "Next Question"
+  const [conversationMode, setConversationMode] = useState<"main" | "followup">("main");
   const [voiceId, setVoiceId] = useState<string>("21m00Tcm4TlvDq8ikWAM");
-  const [previousAnswers, setPreviousAnswers] = useState<Array<{ questionId: number; answer: string }>>([]);
+  const [previousAnswers, setPreviousAnswers] = useState<Array<{ questionId: number; answer: string }>>([])
+  const [pendingNextIndex, setPendingNextIndex] = useState<number | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
@@ -108,6 +113,25 @@ export default function InterviewScreen() {
     scrollToBottom();
   }, [conversation]);
 
+  // Advance to the next main question (called explicitly by user)
+  const advanceToNextQuestion = useCallback(() => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const nextIndex = pendingNextIndex ?? currentQuestionIndex + 1;
+    setConversationMode("main");
+    setPendingNextIndex(null);
+    if (nextIndex >= mainQuestions.length) {
+      updateProgressMutation.mutate({
+        currentQuestionId: 17,
+        completedSections: SECTIONS.map((s) => s.id),
+      });
+      router.push("/odyssey");
+    } else {
+      hasSpokenRef.current = false;
+      setCurrentQuestionIndex(nextIndex);
+      updateProgressMutation.mutate({ currentQuestionId: mainQuestions[nextIndex].id });
+    }
+  }, [pendingNextIndex, currentQuestionIndex, mainQuestions]);
+
   const handleSubmitAnswer = useCallback(
     async (answer: string) => {
       if (!answer.trim() || !currentQuestion) return;
@@ -119,7 +143,23 @@ export default function InterviewScreen() {
       // Add user message to conversation
       setConversation((prev) => [...prev, { role: "user", text: trimmed }]);
 
-      // Save answer to DB
+      // If this is a follow-up reply, save it appended to the main answer and advance
+      if (conversationMode === "followup") {
+        // Save the follow-up reply as additional context (append to last answer)
+        try {
+          await saveAnswerMutation.mutateAsync({
+            questionId: currentQuestion.id,
+            answer: `[Follow-up reply] ${trimmed}`,
+          });
+        } catch (e) {
+          console.warn("[Interview] Failed to save follow-up reply:", e);
+        }
+        // After user responds to follow-up, advance to next question automatically
+        advanceToNextQuestion();
+        return;
+      }
+
+      // Main question answer — save to DB
       try {
         await saveAnswerMutation.mutateAsync({
           questionId: currentQuestion.id,
@@ -128,6 +168,10 @@ export default function InterviewScreen() {
       } catch (e) {
         console.warn("[Interview] Failed to save answer:", e);
       }
+
+      // Compute next index now so we can store it
+      const nextIndex = currentQuestionIndex + 1;
+      setPendingNextIndex(nextIndex);
 
       // Get AI coaching response + audio
       try {
@@ -153,37 +197,15 @@ export default function InterviewScreen() {
           await speak(aiText);
         }
 
-        // Move to next question after a short pause
-        setTimeout(() => {
-          const nextIndex = currentQuestionIndex + 1;
-          if (nextIndex >= mainQuestions.length) {
-            // All questions done — go to odyssey plans
-            updateProgressMutation.mutate({
-              currentQuestionId: 17,
-              completedSections: SECTIONS.map((s) => s.id),
-            });
-            router.push("/odyssey");
-          } else {
-            hasSpokenRef.current = false;
-            setCurrentQuestionIndex(nextIndex);
-            updateProgressMutation.mutate({ currentQuestionId: mainQuestions[nextIndex].id });
-          }
-        }, 800);
+        // *** KEY CHANGE: Do NOT auto-advance. Switch to follow-up mode so user can respond. ***
+        setConversationMode("followup");
       } catch (e) {
         console.warn("[Interview] AI response failed:", e);
-        // Still advance
-        setTimeout(() => {
-          const nextIndex = currentQuestionIndex + 1;
-          if (nextIndex >= mainQuestions.length) {
-            router.push("/odyssey");
-          } else {
-            hasSpokenRef.current = false;
-            setCurrentQuestionIndex(nextIndex);
-          }
-        }, 500);
+        // On error, just advance to next question
+        advanceToNextQuestion();
       }
     },
-    [currentQuestion, currentQuestionIndex, previousAnswers, voiceId, mainQuestions]
+    [currentQuestion, currentQuestionIndex, conversationMode, previousAnswers, voiceId, mainQuestions, advanceToNextQuestion]
   );
 
   const playBase64Audio = async (base64: string) => {
@@ -340,16 +362,42 @@ export default function InterviewScreen() {
                   ? "Listening... tap to send"
                   : voiceState === "thinking"
                   ? "Processing..."
+                  : conversationMode === "followup"
+                  ? "Tap to respond, or skip to next question"
                   : "Tap to speak your answer"}
               </Text>
+              {conversationMode === "followup" && voiceState === "idle" && (
+                <Pressable
+                  onPress={advanceToNextQuestion}
+                  style={({ pressed }) => [
+                    styles.nextBtn,
+                    { backgroundColor: sectionColor },
+                    pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                  ]}
+                >
+                  <Text style={styles.nextBtnText}>Next Question →</Text>
+                </Pressable>
+              )}
             </View>
           ) : (
-            <View style={styles.textInputArea}>
+            <View style={styles.textModeContainer}>
+              {conversationMode === "followup" && (
+                <Pressable
+                  onPress={advanceToNextQuestion}
+                  style={({ pressed }) => [
+                    styles.skipFollowupBtn,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text style={[styles.skipFollowupText, { color: colors.muted }]}>Skip → Next Question</Text>
+                </Pressable>
+              )}
+              <View style={styles.textInputArea}>
               <TextInput
                 ref={inputRef}
                 value={textInput}
                 onChangeText={setTextInput}
-                placeholder="Type your answer..."
+                placeholder={conversationMode === "followup" ? "Reply to the follow-up..." : "Type your answer..."}
                 placeholderTextColor={colors.muted}
                 style={[
                   styles.textInput,
@@ -375,6 +423,7 @@ export default function InterviewScreen() {
               >
                 <IconSymbol name="paperplane.fill" size={20} color="#fff" />
               </Pressable>
+              </View>
             </View>
           )}
         </View>
@@ -517,5 +566,29 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
+  },
+  nextBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 28,
+    marginTop: 4,
+  },
+  nextBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  textModeContainer: {
+    flexDirection: "column",
+  },
+  skipFollowupBtn: {
+    alignItems: "flex-end",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  skipFollowupText: {
+    fontSize: 13,
+    textDecorationLine: "underline",
   },
 });
