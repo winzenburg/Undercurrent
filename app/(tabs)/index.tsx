@@ -42,9 +42,7 @@ export default function HomeScreen() {
 
   const handleStart = () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (answeredCount === 0) {
-      router.push("/voice-select" as any);
-    } else if (isComplete) {
+    if (isComplete) {
       router.push("/synthesis" as any);
     } else {
       router.push("/interview" as any);
@@ -166,18 +164,6 @@ export default function HomeScreen() {
             );
           })}
         </View>
-
-        {/* Voice selection shortcut */}
-        <Pressable
-          onPress={() => router.push("/voice-select" as any)}
-          style={({ pressed }) => [
-            styles.voiceShortcut,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            pressed && { opacity: 0.7 },
-          ]}
-        >
-          <Text style={[styles.voiceShortcutText, { color: colors.muted }]}>🎙  Change voice</Text>
-        </Pressable>
       </ScrollView>
     </ScreenContainer>
   );

@@ -76,3 +76,9 @@
 - [ ] Hedgehog Venn diagram visualization
 - [ ] Odyssey Plans score radar chart
 - [ ] Push notifications for incomplete sessions
+
+## Bug Fixes & UX Improvements
+- [x] Remove voice-select screen from onboarding loop (welcome → voice-select → welcome loop)
+- [x] Default to Rachel voice without requiring selection
+- [x] Add Settings tab with voice picker (change voice anytime)
+- [x] Add Profile/Settings tab to tab bar
