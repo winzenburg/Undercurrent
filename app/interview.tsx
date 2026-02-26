@@ -37,6 +37,8 @@ export default function InterviewScreen() {
   const [textInput, setTextInput] = useState("");
   const [isTextMode, setIsTextMode] = useState(false);
   const hasSpokenRef = useRef(false);
+  const userHasInteractedRef = useRef(false); // Web autoplay policy: audio blocked until first user gesture
+  const [awaitingFirstTap, setAwaitingFirstTap] = useState(Platform.OS === "web");
   const [voiceId, setVoiceId] = useState<string>("21m00Tcm4TlvDq8ikWAM");
   const [previousAnswers, setPreviousAnswers] = useState<Array<{ questionId: number; answer: string }>>([]);
 
@@ -68,21 +70,33 @@ export default function InterviewScreen() {
     getSelectedVoice().then((v) => setVoiceId(v.voice_id));
   }, []);
 
+  // Build the intro text for the current question
+  const buildIntro = useCallback((qIndex: number) => {
+    const q = mainQuestions[qIndex];
+    if (!q) return "";
+    const sec = SECTIONS.find((s) => s.id === q.sectionId);
+    return sec && qIndex === 0
+      ? `Welcome to Undercurrent. I'm your career discovery coach. Let's start with ${sec.title}. ${sec.subtitle}. Here's your first question: ${q.question}`
+      : q.question;
+  }, [mainQuestions]);
+
   // Speak the current question when the index changes — use a ref guard to prevent double-firing
+  // On web, defer until the user has tapped (browser autoplay policy)
   useEffect(() => {
     if (!currentQuestion) return;
     if (hasSpokenRef.current) return;
     hasSpokenRef.current = true;
 
-    const intro = currentSection && currentQuestionIndex === 0
-      ? `Welcome to Undercurrent. I'm your career discovery coach. Let's start with Section One: ${currentSection.title}. ${currentSection.subtitle}. Here's your first question: ${currentQuestion.question}`
-      : currentQuestion.question;
-
-    // Add to conversation
+    // Always add the question text to the conversation immediately
     setConversation((prev) => [...prev, { role: "coach", text: currentQuestion.question }]);
 
-    // Speak it
-    speak(intro);
+    // On web, wait for user interaction before playing audio
+    if (Platform.OS === "web" && !userHasInteractedRef.current) {
+      setAwaitingFirstTap(true);
+      return;
+    }
+
+    speak(buildIntro(currentQuestionIndex));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestionIndex]);
 
@@ -189,6 +203,16 @@ export default function InterviewScreen() {
   };
 
   const handleOrbPress = () => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // On web: first tap unlocks audio autoplay and speaks the pending question
+    if (awaitingFirstTap && Platform.OS === "web") {
+      userHasInteractedRef.current = true;
+      setAwaitingFirstTap(false);
+      speak(buildIntro(currentQuestionIndex));
+      return;
+    }
+
     if (voiceState === "speaking") {
       stopSpeaking();
     } else if (voiceState === "listening") {
@@ -199,7 +223,12 @@ export default function InterviewScreen() {
   };
 
   const handleTextSubmit = () => {
-    if (textInput.trim()) handleSubmitAnswer(textInput);
+    if (textInput.trim()) {
+      // Text submission also counts as user interaction for web autoplay
+      userHasInteractedRef.current = true;
+      setAwaitingFirstTap(false);
+      handleSubmitAnswer(textInput);
+    }
   };
 
   const sectionColor = currentSection?.color ?? colors.primary;
@@ -303,7 +332,9 @@ export default function InterviewScreen() {
             <View style={styles.orbArea}>
               <VoiceOrb state={voiceState} onPress={handleOrbPress} size={80} />
               <Text style={[styles.orbHint, { color: colors.muted }]}>
-                {voiceState === "speaking"
+                {awaitingFirstTap
+                  ? "Tap to hear your question"
+                  : voiceState === "speaking"
                   ? "Tap to interrupt"
                   : voiceState === "listening"
                   ? "Listening... tap to send"

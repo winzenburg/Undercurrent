@@ -87,3 +87,9 @@
 - [x] Fix Q1 voice loop bug (voice speaking in a loop on first question)
 - [x] Add "Start Over" / reset session button in home screen and settings
 - [x] Ensure TTS only fires once per question (guard against double-trigger on mount)
+
+## Bug Fixes — Round 3
+- [x] Fix voice audio not playing — questions not being spoken aloud via ElevenLabs TTS
+- [x] Trace full audio pipeline: speakText tRPC → base64 → playback on device (ElevenLabs returns 23KB audio, web autoplay was the blocker)
+- [x] Fix browser autoplay block — first question audio must be triggered by user tap, not on mount
+- [x] Add "Tap to hear your question" state to orb so user interaction unlocks audio autoplay for all subsequent questions
