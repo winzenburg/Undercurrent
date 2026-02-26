@@ -64,13 +64,15 @@ function buildAnswerContext(answers: Array<{ questionId: number; answer: string 
 
 // ─── ElevenLabs TTS helper ────────────────────────────────────────────────────
 
-async function synthesizeSpeech(text: string, voiceIdOverride?: string): Promise<Buffer | null> {
+type TtsError = "quota_exceeded" | "api_error" | "no_key";
+type SynthesisResult = { audioBase64: string; error?: never } | { audioBase64: null; error: TtsError };
+
+async function synthesizeSpeech(text: string, voiceIdOverride?: string): Promise<SynthesisResult> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     console.warn("[TTS] ELEVENLABS_API_KEY not set");
-    return null;
+    return { audioBase64: null, error: "no_key" };
   }
-  // Use provided voiceId, env override, or default to Rachel
   const voiceId = voiceIdOverride ?? process.env.ELEVENLABS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
   try {
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
@@ -83,24 +85,21 @@ async function synthesizeSpeech(text: string, voiceIdOverride?: string): Promise
       body: JSON.stringify({
         text,
         model_id: "eleven_turbo_v2_5",
-        voice_settings: {
-          stability: 0.45,
-          similarity_boost: 0.82,
-          style: 0.3,
-          use_speaker_boost: true,
-        },
+        voice_settings: { stability: 0.45, similarity_boost: 0.82, style: 0.3, use_speaker_boost: true },
       }),
     });
     if (!res.ok) {
-      const err = await res.text();
-      console.error("[TTS] ElevenLabs error:", err);
-      return null;
+      const errText = await res.text();
+      console.error("[TTS] ElevenLabs error:", errText);
+      const isQuota = errText.includes("quota_exceeded");
+      return { audioBase64: null, error: isQuota ? "quota_exceeded" : "api_error" };
     }
     const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+    return { audioBase64 };
   } catch (e) {
     console.error("[TTS] Failed:", e);
-    return null;
+    return { audioBase64: null, error: "api_error" };
   }
 }
 
@@ -214,23 +213,25 @@ Respond as their career coach. Write naturally for spoken delivery.`,
 
         // Synthesize speech if requested
         let audioBase64: string | null = null;
+        let ttsError: string | null = null;
         if (input.withAudio) {
-          const audioBuffer = await synthesizeSpeech(aiResponse, input.voiceId);
-          if (audioBuffer) {
-            audioBase64 = audioBuffer.toString("base64");
+          const ttsResult = await synthesizeSpeech(aiResponse, input.voiceId);
+          if (ttsResult.audioBase64) {
+            audioBase64 = ttsResult.audioBase64;
+          } else {
+            ttsError = ttsResult.error ?? null;
           }
         }
 
-        return { response: aiResponse, audioBase64 };
+        return { response: aiResponse, audioBase64, ttsError };
       }),
 
-    // Speak a question via ElevenLabs
-    speakText: protectedProcedure
+    // Speak a question via ElevenLabs — public so it works before/during auth
+    speakText: publicProcedure
       .input(z.object({ text: z.string(), voiceId: z.string().optional() }))
       .mutation(async ({ input }) => {
-        const audioBuffer = await synthesizeSpeech(input.text, input.voiceId);
-        if (!audioBuffer) return { audioBase64: null };
-        return { audioBase64: audioBuffer.toString("base64") };
+        const ttsResult = await synthesizeSpeech(input.text, input.voiceId);
+        return { audioBase64: ttsResult.audioBase64, ttsError: ttsResult.error ?? null };
       }),
 
     // Voice transcription

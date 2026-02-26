@@ -22,6 +22,9 @@ export function useVoice({ onTranscription, onError }: UseVoiceOptions = {}) {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const isPlayingRef = useRef(false);
   const stopRequestedRef = useRef(false);
+  // Web Audio API context — created/resumed on first user gesture to bypass autoplay policy
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const speakMutation = trpc.interview.speakText.useMutation();
   const transcribeMutation = trpc.interview.transcribeVoice.useMutation();
@@ -43,8 +46,14 @@ export function useVoice({ onTranscription, onError }: UseVoiceOptions = {}) {
       try {
         const voice = await getSelectedVoice();
         const result = await speakMutation.mutateAsync({ text, voiceId: voice.voice_id });
-        if (!result.audioBase64 || stopRequestedRef.current) {
+        if (stopRequestedRef.current) { setVoiceState("idle"); return; }
+        if (!result.audioBase64) {
           setVoiceState("idle");
+          if (result.ttsError === "quota_exceeded") {
+            onError?.("Voice quota exceeded. Please upgrade your ElevenLabs plan to continue using voice. You can still type your answers.");
+          } else if (result.ttsError) {
+            onError?.("Voice unavailable. You can still type your answers.");
+          }
           return;
         }
 
@@ -53,24 +62,50 @@ export function useVoice({ onTranscription, onError }: UseVoiceOptions = {}) {
         isPlayingRef.current = true;
 
         if (Platform.OS === "web") {
-          // Web: decode base64 and play via Audio API
-          const binary = atob(result.audioBase64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: "audio/mpeg" });
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.onended = () => {
-            URL.revokeObjectURL(url);
-            isPlayingRef.current = false;
-            if (!stopRequestedRef.current) setVoiceState("idle");
-          };
-          audio.onerror = () => {
-            URL.revokeObjectURL(url);
+          // Web: use Web Audio API (AudioContext) which bypasses autoplay policy
+          // after the first user gesture has unlocked the context.
+          try {
+            // Create or resume the AudioContext
+            if (!audioCtxRef.current) {
+              audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            }
+            const ctx = audioCtxRef.current;
+            if (ctx.state === "suspended") {
+              await ctx.resume();
+            }
+
+            // Decode base64 → ArrayBuffer → AudioBuffer
+            const binary = atob(result.audioBase64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+
+            if (stopRequestedRef.current) {
+              setVoiceState("idle");
+              return;
+            }
+
+            // Stop any currently playing source
+            try { currentSourceRef.current?.stop(); } catch { /* ignore */ }
+
+            const source = ctx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(ctx.destination);
+            currentSourceRef.current = source;
+
+            source.onended = () => {
+              isPlayingRef.current = false;
+              if (!stopRequestedRef.current) setVoiceState("idle");
+            };
+
+            source.start(0);
+            console.log("[Voice] AudioContext playback started, duration:", audioBuffer.duration.toFixed(1), "s");
+          } catch (webAudioErr) {
+            console.error("[Voice] Web Audio API error:", webAudioErr);
             isPlayingRef.current = false;
             setVoiceState("idle");
-          };
-          await audio.play();
+            onError?.("Audio playback failed. Please check your browser settings.");
+          }
         } else {
           // Native: write to temp file and play
           const tmpPath = `${FileSystem.cacheDirectory}tts_${Date.now()}.mp3`;
@@ -102,7 +137,10 @@ export function useVoice({ onTranscription, onError }: UseVoiceOptions = {}) {
   const stopSpeaking = useCallback(() => {
     stopRequestedRef.current = true;
     isPlayingRef.current = false;
-    if (Platform.OS !== "web") {
+    if (Platform.OS === "web") {
+      try { currentSourceRef.current?.stop(); } catch { /* ignore */ }
+      currentSourceRef.current = null;
+    } else {
       try { player.pause(); } catch { /* ignore */ }
     }
     setVoiceState("idle");

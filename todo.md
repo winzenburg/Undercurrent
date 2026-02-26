@@ -98,3 +98,11 @@
 - [x] Fix conversation flow: AI follow-up response is spoken, then next main question launches immediately without waiting for user to respond to the follow-up
 - [x] Add explicit conversation states: "answering main question" → "AI follow-up" → "user responds to follow-up" → "advance to next question"
 - [x] Only advance to next main question after user has responded to the AI follow-up (or explicitly skips it with "Next Question →" button)
+
+## Bug Fixes — Round 5
+- [x] Debug desktop web audio: root cause was (1) speakText used protectedProcedure requiring auth, (2) ElevenLabs quota exceeded (20 credit free tier limit)
+- [x] Fixed speakText to use publicProcedure (no auth required)
+- [x] Switched web audio playback from Audio element to Web Audio API (AudioContext) to bypass autoplay policy
+- [x] Added ttsError field to server responses so client knows when quota is exceeded
+- [x] Added visible voice error banner in interview screen that auto-dismisses after 8 seconds
+- [x] App gracefully falls back to text mode when voice is unavailable

@@ -44,8 +44,9 @@ export default function InterviewScreen() {
   // 'followup' — AI has responded; user can reply to the follow-up OR tap "Next Question"
   const [conversationMode, setConversationMode] = useState<"main" | "followup">("main");
   const [voiceId, setVoiceId] = useState<string>("21m00Tcm4TlvDq8ikWAM");
-  const [previousAnswers, setPreviousAnswers] = useState<Array<{ questionId: number; answer: string }>>([])
+  const [previousAnswers, setPreviousAnswers] = useState<Array<{ questionId: number; answer: string }>>([]);
   const [pendingNextIndex, setPendingNextIndex] = useState<number | null>(null);
+  const [voiceErrorBanner, setVoiceErrorBanner] = useState<string | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
@@ -67,6 +68,9 @@ export default function InterviewScreen() {
     onError: (err) => {
       console.warn("[Interview] Voice error:", err);
       setIsTextMode(true);
+      setVoiceErrorBanner(err);
+      // Auto-dismiss banner after 8 seconds
+      setTimeout(() => setVoiceErrorBanner(null), 8000);
     },
   });
 
@@ -294,6 +298,16 @@ export default function InterviewScreen() {
         <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
           <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: sectionColor }]} />
         </View>
+
+        {/* Voice error banner */}
+        {voiceErrorBanner && (
+          <View style={[styles.voiceBanner, { backgroundColor: colors.warning + "22", borderColor: colors.warning }]}>
+            <IconSymbol name="mic.slash.fill" size={14} color={colors.warning} />
+            <Text style={[styles.voiceBannerText, { color: colors.foreground }]} numberOfLines={3}>
+              {voiceErrorBanner}
+            </Text>
+          </View>
+        )}
 
         {/* Framework tags */}
         {currentQuestion && (
@@ -590,5 +604,20 @@ const styles = StyleSheet.create({
   skipFollowupText: {
     fontSize: 13,
     textDecorationLine: "underline",
+  },
+  voiceBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  voiceBannerText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
   },
 });
