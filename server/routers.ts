@@ -312,6 +312,13 @@ Return JSON with these exact keys:
         return JSON.parse(content) as Record<string, string>;
       }),
 
+    // Reset session — delete all answers and start fresh
+    resetSession: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        await db.resetSession(ctx.user.id);
+        return { success: true };
+      }),
+
     // Send synthesis report via email
     sendEmail: protectedProcedure
       .input(z.object({

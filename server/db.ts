@@ -151,3 +151,32 @@ export async function updateAnswerAiResponse(sessionId: number, questionId: numb
     .set({ aiResponse })
     .where(and(eq(interviewAnswers.sessionId, sessionId), eq(interviewAnswers.questionId, questionId)));
 }
+
+export async function deleteAnswersBySession(sessionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(interviewAnswers).where(eq(interviewAnswers.sessionId, sessionId));
+}
+
+export async function resetSession(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Get existing session
+  const existing = await db.select().from(interviewSessions).where(eq(interviewSessions.userId, userId)).limit(1);
+  if (existing.length > 0) {
+    const sessionId = existing[0].id;
+    // Delete all answers
+    await db.delete(interviewAnswers).where(eq(interviewAnswers.sessionId, sessionId));
+    // Reset session to initial state
+    await db.update(interviewSessions).set({
+      currentQuestionId: 1,
+      completedSections: null,
+      odysseyPaths: null,
+      odysseyRatings: null,
+      careerCanvas: null,
+      nextSteps: null,
+      isComplete: false,
+      emailSent: false,
+    }).where(eq(interviewSessions.userId, userId));
+  }
+}

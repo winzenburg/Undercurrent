@@ -82,3 +82,8 @@
 - [x] Default to Rachel voice without requiring selection
 - [x] Add Settings tab with voice picker (change voice anytime)
 - [x] Add Profile/Settings tab to tab bar
+
+## Bug Fixes — Round 2
+- [x] Fix Q1 voice loop bug (voice speaking in a loop on first question)
+- [x] Add "Start Over" / reset session button in home screen and settings
+- [x] Ensure TTS only fires once per question (guard against double-trigger on mount)

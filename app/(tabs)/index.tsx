@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -40,12 +41,33 @@ export default function HomeScreen() {
     ? SECTIONS.find((s) => s.id === lastAnsweredQ.sectionId)
     : SECTIONS[0];
 
+  const resetMutation = trpc.interview.resetSession.useMutation({
+    onSuccess: () => sessionQuery.refetch(),
+  });
+
   const handleStart = () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (isComplete) {
       router.push("/synthesis" as any);
     } else {
       router.push("/interview" as any);
+    }
+  };
+
+  const handleStartOver = () => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const doReset = () => resetMutation.mutate();
+    if (Platform.OS === "web") {
+      if (window.confirm("Start over? This will delete all your answers and reset your session.")) doReset();
+    } else {
+      Alert.alert(
+        "Start Over?",
+        "This will delete all your answers and reset your session from the beginning.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Start Over", style: "destructive", onPress: doReset },
+        ]
+      );
     }
   };
 
@@ -105,6 +127,17 @@ export default function HomeScreen() {
             <Text style={[styles.progressLabel, { color: colors.muted }]}>
               {answeredCount} of {TOTAL_QUESTIONS} questions answered
             </Text>
+          )}
+          {answeredCount > 0 && (
+            <Pressable
+              onPress={handleStartOver}
+              style={({ pressed }) => [pressed && { opacity: 0.6 }]}
+              disabled={resetMutation.isPending}
+            >
+              <Text style={[styles.startOverText, { color: colors.muted }]}>
+                {resetMutation.isPending ? "Resetting..." : "Start Over"}
+              </Text>
+            </Pressable>
           )}
         </View>
 
@@ -194,4 +227,5 @@ const styles = StyleSheet.create({
   sectionCount: { fontSize: 12, fontWeight: "600" },
   voiceShortcut: { borderRadius: 12, padding: 14, borderWidth: 1, alignItems: "center" },
   voiceShortcutText: { fontSize: 14, fontWeight: "600" },
+  startOverText: { fontSize: 13, textDecorationLine: "underline", marginTop: -4 },
 });

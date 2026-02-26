@@ -36,7 +36,7 @@ export default function InterviewScreen() {
   const [conversation, setConversation] = useState<ConversationEntry[]>([]);
   const [textInput, setTextInput] = useState("");
   const [isTextMode, setIsTextMode] = useState(false);
-  const [hasSpokenQuestion, setHasSpokenQuestion] = useState(false);
+  const hasSpokenRef = useRef(false);
   const [voiceId, setVoiceId] = useState<string>("21m00Tcm4TlvDq8ikWAM");
   const [previousAnswers, setPreviousAnswers] = useState<Array<{ questionId: number; answer: string }>>([]);
 
@@ -68,10 +68,11 @@ export default function InterviewScreen() {
     getSelectedVoice().then((v) => setVoiceId(v.voice_id));
   }, []);
 
-  // Speak the current question when it changes
+  // Speak the current question when the index changes — use a ref guard to prevent double-firing
   useEffect(() => {
-    if (!currentQuestion || hasSpokenQuestion) return;
-    setHasSpokenQuestion(false);
+    if (!currentQuestion) return;
+    if (hasSpokenRef.current) return;
+    hasSpokenRef.current = true;
 
     const intro = currentSection && currentQuestionIndex === 0
       ? `Welcome to Undercurrent. I'm your career discovery coach. Let's start with Section One: ${currentSection.title}. ${currentSection.subtitle}. Here's your first question: ${currentQuestion.question}`
@@ -81,8 +82,9 @@ export default function InterviewScreen() {
     setConversation((prev) => [...prev, { role: "coach", text: currentQuestion.question }]);
 
     // Speak it
-    speak(intro).then(() => setHasSpokenQuestion(true));
-  }, [currentQuestionIndex, currentQuestion]);
+    speak(intro);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestionIndex]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -148,8 +150,8 @@ export default function InterviewScreen() {
             });
             router.push("/odyssey");
           } else {
+            hasSpokenRef.current = false;
             setCurrentQuestionIndex(nextIndex);
-            setHasSpokenQuestion(false);
             updateProgressMutation.mutate({ currentQuestionId: mainQuestions[nextIndex].id });
           }
         }, 800);
@@ -161,8 +163,8 @@ export default function InterviewScreen() {
           if (nextIndex >= mainQuestions.length) {
             router.push("/odyssey");
           } else {
+            hasSpokenRef.current = false;
             setCurrentQuestionIndex(nextIndex);
-            setHasSpokenQuestion(false);
           }
         }, 500);
       }
