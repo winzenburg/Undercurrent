@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, InsertInterviewSession, InsertInterviewAnswer, interviewAnswers, interviewSessions, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,65 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// ─── Interview Sessions ───────────────────────────────────────────────────────
+
+export async function getOrCreateSession(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(interviewSessions).where(eq(interviewSessions.userId, userId)).limit(1);
+  if (existing.length > 0) return existing[0];
+  await db.insert(interviewSessions).values({ userId });
+  const created = await db.select().from(interviewSessions).where(eq(interviewSessions.userId, userId)).limit(1);
+  return created[0];
+}
+
+export async function getSessionByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(interviewSessions).where(eq(interviewSessions.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function updateSession(userId: number, data: Partial<InsertInterviewSession>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(interviewSessions).set(data).where(eq(interviewSessions.userId, userId));
+}
+
+// ─── Interview Answers ────────────────────────────────────────────────────────
+
+export async function upsertAnswer(data: { sessionId: number; userId: number; questionId: number; answer: string; aiResponse?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(interviewAnswers)
+    .where(and(eq(interviewAnswers.sessionId, data.sessionId), eq(interviewAnswers.questionId, data.questionId)))
+    .limit(1);
+  if (existing.length > 0) {
+    await db.update(interviewAnswers)
+      .set({ answer: data.answer, aiResponse: data.aiResponse ?? existing[0].aiResponse })
+      .where(eq(interviewAnswers.id, existing[0].id));
+  } else {
+    await db.insert(interviewAnswers).values(data);
+  }
+}
+
+export async function getAnswersBySession(sessionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(interviewAnswers).where(eq(interviewAnswers.sessionId, sessionId));
+}
+
+export async function updateAnswerAiResponse(sessionId: number, questionId: number, aiResponse: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(interviewAnswers)
+    .set({ aiResponse })
+    .where(and(eq(interviewAnswers.sessionId, sessionId), eq(interviewAnswers.questionId, questionId)));
+}

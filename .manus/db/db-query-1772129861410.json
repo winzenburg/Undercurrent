@@ -1,0 +1,31 @@
+{
+  "query": "SHOW TABLES; SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE();",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3n9jioggqUQpNwr.32965981973e --database hWNX8gKoBcnMftV3SFMzAR --execute SHOW TABLES; SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE();",
+  "rows": [
+    {
+      "Tables_in_hWNX8gKoBcnMftV3SFMzAR": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_hWNX8gKoBcnMftV3SFMzAR": "interview_answers"
+    },
+    {
+      "Tables_in_hWNX8gKoBcnMftV3SFMzAR": "users"
+    },
+    {
+      "Tables_in_hWNX8gKoBcnMftV3SFMzAR": "TABLE_NAME"
+    },
+    {
+      "Tables_in_hWNX8gKoBcnMftV3SFMzAR": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_hWNX8gKoBcnMftV3SFMzAR": "users"
+    },
+    {
+      "Tables_in_hWNX8gKoBcnMftV3SFMzAR": "interview_answers"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_hWNX8gKoBcnMftV3SFMzAR\n__drizzle_migrations\ninterview_answers\nusers\nTABLE_NAME\n__drizzle_migrations\nusers\ninterview_answers\n",
+  "stderr": "",
+  "execution_time_ms": 176
+}

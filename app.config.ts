@@ -28,11 +28,11 @@ const schemeFromBundleId = `manus${timestamp}`;
 
 const env = {
   // App branding - update these values directly (do not use env vars)
-  appName: "Career Discovery Interview",
+  appName: "Undercurrent",
   appSlug: "career-discovery-app",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "",
+  logoUrl: "https://private-us-east-1.manuscdn.com/sessionFile/XCzjqoZssCXb1GZ6oGc1j7/sandbox/RgJuB1jux6weXI0JuYUXdS-img-1_1772131967000_na1fn_dW5kZXJjdXJyZW50LWljb24.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvWEN6anFvWnNzQ1hiMUdaNm9HYzFqNy9zYW5kYm94L1JnSnVCMWp1eDZ3ZVhJMEp1WVVYZFMtaW1nLTFfMTc3MjEzMTk2NzAwMF9uYTFmbl9kVzVrWlhKamRYSnlaVzUwTFdsamIyNC5wbmc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=WN4iTTtdWeUbfZQO3lSE2NRS~w9r~QAB5p~tU-XZsm4AIUz8pOfrlOmAtEV7mK1UmxM8nFEa3A2zSvS3IPzsShDwM~dQ9NMrCuvgC4YLGUgocpSa1sIAOtGlCOEpzMekd-stoCxACKqiq57xRjmvXr5Fw1M17hAyfuP5E8YKbCvFQB9ZCJXnJD1EibEm0zSOBCbpJt82-5vjb9T~qBZppYR5dIXqBlvetDPh2R4jWWEwTSoqG4YZ6o6JS1uBebo6jwyucM7QAnBLhDzUKKGAkCEdeoZ-~hNRo6HmLn6m67Kc8eR0aJ1FnVaoWg3zLg3JvqqxJMD2kve7JeG8zWG4fA__",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
