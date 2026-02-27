@@ -163,6 +163,10 @@ export function useVoice({ onTranscription, onError }: UseVoiceOptions = {}) {
     stopSpeaking();
 
     try {
+      // Always stop any stale recorder state before preparing a fresh recording.
+      // expo-audio requires prepareToRecordAsync() before every record() call —
+      // the MediaRecorder is torn down after each stop(), so we must re-initialize.
+      try { await recorder.stop(); } catch { /* ignore if not recording */ }
       await recorder.prepareToRecordAsync();
       recorder.record();
       setIsRecording(true);

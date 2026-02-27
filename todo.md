@@ -106,3 +106,7 @@
 - [x] Added ttsError field to server responses so client knows when quota is exceeded
 - [x] Added visible voice error banner in interview screen that auto-dismisses after 8 seconds
 - [x] App gracefully falls back to text mode when voice is unavailable
+
+## Bug Fixes — Round 6
+- [x] Fix MediaRecorder error: "Cannot start an audio recording without initializing a MediaRecorder. Run prepareToRecordAsync() before attempting to start an audio recording."
+- [x] Ensure prepareToRecordAsync() is called fresh before every record() attempt (always stop stale recorder first, then re-prepare)
