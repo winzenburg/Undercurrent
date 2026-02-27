@@ -45,6 +45,7 @@ export function useVoice({ onTranscription, onError }: UseVoiceOptions = {}) {
 
       try {
         const voice = await getSelectedVoice();
+        speakMutation.reset(); // Clear any cached error state from previous calls
         const result = await speakMutation.mutateAsync({ text, voiceId: voice.voice_id });
         if (stopRequestedRef.current) { setVoiceState("idle"); return; }
         if (!result.audioBase64) {
@@ -130,7 +131,8 @@ export function useVoice({ onTranscription, onError }: UseVoiceOptions = {}) {
         onError?.("Failed to generate speech. Check your connection.");
       }
     },
-    [speakMutation, player, onError]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [speakMutation.mutateAsync, speakMutation.reset, player, onError]
   );
 
   // Stop speaking immediately
